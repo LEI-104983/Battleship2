@@ -1,3 +1,106 @@
+# Battleship2 - Ficha 2 de Engenharia de Software
+
+**Vídeo de demonstração:** <COLOCAR AQUI O LINK DO YOUTUBE>
+
+**Documentação (Javadoc):** https://lei-104983.github.io/Battleship2/
+
+Aluno: LEI-104983 (trabalho feito individualmente)
+
+---
+
+## User story implementada
+
+[Issue #1 - Exportar o histórico das jogadas para PDF](https://github.com/LEI-104983/Battleship2/issues/1)
+
+> Como jogador, quero exportar para um ficheiro PDF o histórico das rajadas que foram disparadas contra a minha frota, para poder rever o jogo depois de terminado.
+
+- Biblioteca usada: [OpenPDF](https://github.com/LibrePDF/OpenPDF) (`com.github.librepdf:openpdf:3.0.5`)
+- Ramo: `104983-exportar-pdf` → [PR #2](https://github.com/LEI-104983/Battleship2/pull/2)
+- Novo comando no jogo: `pdf` → cria `data/jogadas.pdf` com uma tabela das jogadas e o estado da frota
+
+### Como correr
+
+```
+mvn clean compile
+```
+Depois correr a classe `battleship.Main` no IntelliJ e usar os comandos `gerafrota`, `rajada`, `simula`, `pdf`, ... (`ajuda` mostra todos).
+
+---
+
+## Protocolo de comunicação com o LLM (Parte C)
+
+A rajada é enviada em JSON:
+
+```json
+[ {"row": "A", "column": 5}, {"row": "C", "column": 10}, {"row": "F", "column": 5} ]
+```
+
+A resposta é gerada pelo programa (`Move.processEnemyFire`) e impressa na consola depois de cada rajada:
+
+```json
+{
+  "validShots" : 3,
+  "sunkBoats" : [ {"count" : 1, "type" : "Barca"} ],
+  "repeatedShots" : 0,
+  "outsideShots" : 0,
+  "hitsOnBoats" : [ {"hits" : 1, "type" : "Nau"} ],
+  "missedShots" : 1
+}
+```
+
+---
+
+## Prompt final da estratégia (Parte D)
+
+```
+Considere agora a seguinte tática de geração de rajadas de tiros.
+
+1. Diário de Bordo: registe cada rajada numerada (Rajada 1, 2, 3...) com as coordenadas
+   exatas de cada tiro e o resultado que eu lhe devolvo em JSON. Antes de cada nova rajada
+   mostre-me o diário resumido e um mapa 10x10 com: X = tiro em navio, o = água,
+   # = navio afundado, . = ainda não testado, - = água garantida (não disparar).
+
+2. Nunca dispare fora do tabuleiro (linhas A-J, colunas 1-10) nem repita coordenadas já
+   testadas ou marcadas com "-". A única exceção é a última rajada, só para completar os
+   3 tiros quando a minha frota já estiver toda afundada.
+
+3. Modo caça vs. modo alvo:
+   - Se houver algum navio atingido e ainda não afundado ("hitsOnBoats"), está em MODO ALVO:
+     dispare nas posições contíguas (Norte, Sul, Este, Oeste) desse tiro. Depois de 2 tiros
+     certeiros alinhados, continue só nessa linha/coluna, nas duas pontas.
+   - Se não houver navios atingidos por afundar, está em MODO CAÇA: dispare em padrão de
+     xadrez (casas onde linha+coluna é par), espalhando os 3 tiros por zonas diferentes
+     do tabuleiro. O navio mais pequeno que ainda falta afundar define o espaçamento.
+
+4. Como Caravelas, Naus e Fragatas são linhas retas e os navios não se tocam, as diagonais
+   de um tiro certeiro são água garantida. Exceção: o Galeão (forma de T) - se o "type"
+   for "Galeao", considere também as posições das asas da ponte.
+
+5. Quando "sunkBoats" indicar um navio afundado, use o Diário de Bordo para descobrir
+   quais tiros pertencem a esse navio (o número de tiros tem de ser igual ao tamanho:
+   Barca 1, Caravela 2, Nau 3, Fragata 4, Galeão 5) e marque todo o halo à volta com "-".
+
+6. Mantenha a contagem da minha frota (4 Barcas, 3 Caravelas, 2 Naus, 1 Fragata,
+   1 Galeão) e não procure navios de um tipo que já foi todo afundado.
+
+7. Responda SEMPRE apenas com a rajada em JSON, no formato
+   [ {"row": "A", "column": 5}, {"row": "C", "column": 10}, {"row": "F", "column": 5} ]
+   seguida do diário resumido.
+
+8. Se a sua frota for toda afundada, declare a derrota com honra. Se for a minha,
+   seja um vencedor magnânimo!
+
+Exemplo (few-shot):
+Rajada 5: D4, D5, J9 -> {"validShots":3,"sunkBoats":[{"count":1,"type":"Caravela"}],"hitsOnBoats":[],"missedShots":1,...}
+Raciocínio: a Caravela tem 2 posições e só houve 1 tiro na água, logo D4 e D5 eram a
+Caravela e J9 foi água. Marco o halo C3, C4, C5, C6, D3, D6, E3, E4, E5, E6 com "-"
+e volto ao modo caça.
+```
+
+> Nota: este prompt deve ser ajustado com o que aprendermos ao jogar contra o LLM.
+
+---
+
 # ⚓ Battleship 2.0
 
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
