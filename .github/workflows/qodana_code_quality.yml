@@ -1,12 +1,8 @@
 name: Qodana
 
 on:
+  # Manual: requires the QODANA_TOKEN secret
   workflow_dispatch:
-  pull_request:
-  push:
-    branches:
-      - main
-      - 'releases/*'
 
 jobs:
   qodana:
