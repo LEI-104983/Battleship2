@@ -43,51 +43,58 @@ public class PdfExporter {
 
 		Document document = new Document();
 		try (FileOutputStream out = new FileOutputStream(fileName)) {
-			PdfWriter.getInstance(document, out);
-			document.open();
-
-			Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
-			Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
-			Font normalFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
-
-			document.add(new Paragraph("Batalha Naval - Historico das jogadas", titleFont));
-			String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
-			document.add(new Paragraph("Gerado em " + date, normalFont));
-			document.add(new Paragraph(" "));
-
-			List<IMove> moves = game.getAlienMoves();
-			if (moves.isEmpty()) {
-				document.add(new Paragraph("Ainda nao foi disparada nenhuma rajada.", normalFont));
-			} else {
-				PdfPTable table = new PdfPTable(new float[]{1, 1, 1, 1, 4});
-				table.setWidthPercentage(100);
-
-				addHeader(table, "Jogada", headerFont);
-				addHeader(table, "Tiro 1", headerFont);
-				addHeader(table, "Tiro 2", headerFont);
-				addHeader(table, "Tiro 3", headerFont);
-				addHeader(table, "Resultado", headerFont);
-
-				for (IMove move : moves) {
-					table.addCell(new Phrase(String.valueOf(move.getNumber()), normalFont));
-					for (IPosition shot : move.getShots())
-						table.addCell(new Phrase(shot.toString(), normalFont));
-					table.addCell(new Phrase(describeResults(move), normalFont));
-				}
-				document.add(table);
+			try {
+				write(document, out, game);
+			} finally {
+				// o documento tem de ser fechado antes do stream, senao o PDF fica vazio
+				if (document.isOpen())
+					document.close();
 			}
-
-			// estado final da frota
-			IFleet fleet = game.getMyFleet();
-			document.add(new Paragraph(" "));
-			document.add(new Paragraph("Estado da frota: " + fleet.getFloatingShips().size() + " a flutuar, "
-					+ fleet.getSunkShips().size() + " afundados", headerFont));
 		} catch (DocumentException e) {
 			throw new IOException("Erro ao criar o PDF", e);
-		} finally {
-			if (document.isOpen())
-				document.close();
 		}
+	}
+
+	private static void write(Document document, FileOutputStream out, IGame game) {
+		PdfWriter.getInstance(document, out);
+		document.open();
+
+		Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
+		Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+		Font normalFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
+
+		document.add(new Paragraph("Batalha Naval - Historico das jogadas", titleFont));
+		String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+		document.add(new Paragraph("Gerado em " + date, normalFont));
+		document.add(new Paragraph(" "));
+
+		List<IMove> moves = game.getAlienMoves();
+		if (moves.isEmpty()) {
+			document.add(new Paragraph("Ainda nao foi disparada nenhuma rajada.", normalFont));
+		} else {
+			PdfPTable table = new PdfPTable(new float[]{1, 1, 1, 1, 4});
+			table.setWidthPercentage(100);
+
+			addHeader(table, "Jogada", headerFont);
+			addHeader(table, "Tiro 1", headerFont);
+			addHeader(table, "Tiro 2", headerFont);
+			addHeader(table, "Tiro 3", headerFont);
+			addHeader(table, "Resultado", headerFont);
+
+			for (IMove move : moves) {
+				table.addCell(new Phrase(String.valueOf(move.getNumber()), normalFont));
+				for (IPosition shot : move.getShots())
+					table.addCell(new Phrase(shot.toString(), normalFont));
+				table.addCell(new Phrase(describeResults(move), normalFont));
+			}
+			document.add(table);
+		}
+
+		// estado final da frota
+		IFleet fleet = game.getMyFleet();
+		document.add(new Paragraph(" "));
+		document.add(new Paragraph("Estado da frota: " + fleet.getFloatingShips().size() + " a flutuar, "
+				+ fleet.getSunkShips().size() + " afundados", headerFont));
 	}
 
 	/**
@@ -109,9 +116,9 @@ public class PdfExporter {
 			else if (result.ship() == null)
 				sb.append("agua");
 			else if (result.sunk())
-				sb.append(result.ship().getCategory()).append(" afundada");
+				sb.append(result.ship().getCategory()).append(" ao fundo");
 			else
-				sb.append(result.ship().getCategory()).append(" atingida");
+				sb.append("tiro num(a) ").append(result.ship().getCategory());
 		}
 		return sb.toString();
 	}
