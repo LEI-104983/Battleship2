@@ -1,10 +1,8 @@
 name: SonarCloud Quality Gate Check
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  # Manual: requires SONAR_TOKEN and the SonarCloud organization key
+  workflow_dispatch:
 
 jobs:
   sonarcloud-quality-gate:
