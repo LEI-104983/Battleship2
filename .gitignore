@@ -1,1 +1,4 @@
 /target/
+
+# PDF gerado pelo comando pdf
+data/jogadas.pdf
