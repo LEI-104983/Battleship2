@@ -31,46 +31,78 @@ Considere agora a seguinte tática de geração de rajadas de tiros.
 1. Diário de Bordo: registe cada rajada numerada (Rajada 1, 2, 3...) com as coordenadas
    exatas de cada tiro e o resultado que eu lhe devolvo em JSON. Antes de cada nova rajada
    mostre-me o diário resumido e um mapa 10x10 com: X = tiro em navio, o = água,
-   # = navio afundado, . = ainda não testado, - = água garantida (não disparar).
+   # = navio afundado, ? = tiro de uma rajada ambígua (ainda não sabe se acertou),
+   - = água garantida (não disparar), . = ainda não testado.
 
 2. Nunca dispare fora do tabuleiro (linhas A-J, colunas 1-10) nem repita coordenadas já
    testadas ou marcadas com "-". A única exceção é a última rajada, só para completar os
    3 tiros quando a minha frota já estiver toda afundada.
 
-3. Modo caça vs. modo alvo:
+3. ATENÇÃO, a resposta é agregada: o JSON diz QUANTOS tiros acertaram e em que TIPO de
+   navio, mas não diz QUAL dos 3 tiros acertou. Se uma rajada tiver acertos e águas,
+   marque os 3 tiros com "?" e mantenha uma lista de hipóteses ("se o acerto foi em G7,
+   então..."). Para as resolver use estas regras:
+   a) Os navios não se tocam: uma casa encostada (mesmo na diagonal) a uma casa de navio
+      ou é do MESMO navio ou é água. Se G7 foi água e G8 deu Fragata, a Nau não está em G7.
+   b) Se só falta 1 navio de um tipo, qualquer acerto nesse tipo pertence a esse navio.
+   c) Uma casa rodeada de água só pode ser uma Barca; uma casa com um só vizinho livre
+      define a orientação do navio.
+   d) Na rajada seguinte, cada tiro deve testar UMA só hipótese (casas vizinhas de um só
+      candidato), para que o resultado diga qual delas era verdadeira.
+   e) Descarte as hipóteses que contradizem qualquer JSON anterior.
+
+4. Modo caça vs. modo alvo:
    - Se houver algum navio atingido e ainda não afundado ("hitsOnBoats"), está em MODO ALVO:
-     dispare nas posições contíguas (Norte, Sul, Este, Oeste) desse tiro. Depois de 2 tiros
-     certeiros alinhados, continue só nessa linha/coluna, nas duas pontas.
+     dispare nas posições contíguas (Norte, Sul, Este, Oeste) do tiro certeiro. Depois de 2
+     tiros certeiros alinhados, continue só nessa linha/coluna, nas duas pontas.
    - Se não houver navios atingidos por afundar, está em MODO CAÇA: dispare em padrão de
      xadrez (casas onde linha+coluna é par), espalhando os 3 tiros por zonas diferentes
-     do tabuleiro. O navio mais pequeno que ainda falta afundar define o espaçamento.
+     do tabuleiro e longe das casas "-". Quando só faltarem Barcas, o xadrez já não ajuda:
+     dispare nas casas livres que ainda não estão em nenhum halo.
 
-4. Como Caravelas, Naus e Fragatas são linhas retas e os navios não se tocam, as diagonais
+5. Como Caravelas, Naus e Fragatas são linhas retas e os navios não se tocam, as diagonais
    de um tiro certeiro são água garantida. Exceção: o Galeão (forma de T) - se o "type"
-   for "Galeao", considere também as posições das asas da ponte.
+   for "Galeao", as asas da ponte ficam na diagonal do corpo.
 
-5. Quando "sunkBoats" indicar um navio afundado, use o Diário de Bordo para descobrir
-   quais tiros pertencem a esse navio (o número de tiros tem de ser igual ao tamanho:
-   Barca 1, Caravela 2, Nau 3, Fragata 4, Galeão 5) e marque todo o halo à volta com "-".
+6. Navios afundados:
+   - Um navio afundado aparece SÓ em "sunkBoats" e nunca em "hitsOnBoats", nem os tiros
+     que lhe acertaram nessa mesma rajada. Ex.: dois tiros que acabam um Galeão dão
+     "sunkBoats":[{"count":1,"type":"Galeao"}] e "hitsOnBoats":[].
+   - Se na mesma rajada afundar um navio e acertar noutro do MESMO tipo, esse segundo
+     acerto NÃO aparece no JSON (fica escondido). Por isso, depois de um afundamento,
+     confirme que não ficou nenhum navio desse tipo tocado.
+   - Se acertar num tipo e o acerto anterior nesse tipo estiver encostado, mas o JSON não
+     disser "ao fundo", então são dois navios diferentes.
+   - Use o Diário de Bordo para descobrir que tiros pertencem ao navio afundado (o número
+     de tiros tem de ser igual ao tamanho: Barca 1, Caravela 2, Nau 3, Fragata 4, Galeão 5)
+     e marque todo o halo à volta com "-".
 
-6. Mantenha a contagem da minha frota (4 Barcas, 3 Caravelas, 2 Naus, 1 Fragata,
+7. Mantenha a contagem da minha frota (4 Barcas, 3 Caravelas, 2 Naus, 1 Fragata,
    1 Galeão) e não procure navios de um tipo que já foi todo afundado.
 
-7. Responda SEMPRE apenas com a rajada em JSON, no formato
+8. Responda SEMPRE apenas com a rajada em JSON, no formato
    [ {"row": "A", "column": 5}, {"row": "C", "column": 10}, {"row": "F", "column": 5} ]
    seguida do diário resumido.
 
-8. Se a sua frota for toda afundada, declare a derrota com honra. Se for a minha,
+9. Se a sua frota for toda afundada, declare a derrota com honra. Se for a minha,
    seja um vencedor magnânimo!
 
-Exemplo (few-shot):
-Rajada 5: D4, D5, J9 -> {"validShots":3,"sunkBoats":[{"count":1,"type":"Caravela"}],"hitsOnBoats":[],"missedShots":1,...}
-Raciocínio: a Caravela tem 2 posições e só houve 1 tiro na água, logo D4 e D5 eram a
-Caravela e J9 foi água. Marco o halo C3, C4, C5, C6, D3, D6, E3, E4, E5, E6 com "-"
-e volto ao modo caça.
+Exemplos (few-shot, tirados de um jogo real):
+
+Rajada 3: G7, B4, E9 -> {"validShots":3,"sunkBoats":[],"hitsOnBoats":[{"hits":1,"type":"Nau"}],"missedShots":2,...}
+Raciocínio: há uma Nau em G7, B4 ou E9, mas não sei em qual. Marco os 3 com "?".
+Rajada 4: G8, B5, D9 (cada tiro encostado a um só candidato) ->
+  {"validShots":3,"sunkBoats":[],"hitsOnBoats":[{"hits":1,"type":"Caravela"},{"hits":1,"type":"Fragata"}],"missedShots":1,...}
+Raciocínio: uma casa encostada à Nau só pode ser Nau ou água. Como não houve acerto em
+Nau, o candidato certo é aquele cujo vizinho deu água; os outros dois vizinhos são a
+Caravela e a Fragata, e os candidatos ao lado deles foram água.
+
+Rajada 18: C1, E1, J2 -> {"validShots":3,"sunkBoats":[{"count":1,"type":"Galeao"}],"hitsOnBoats":[],"missedShots":1,...}
+Raciocínio: C1 e E1 eram as asas do Galeão (D1, D2, D3 já tinham acertado). Os dois
+acertos não aparecem em "hitsOnBoats" porque o navio foi ao fundo; J2 foi água.
 ```
 
-> Nota: este prompt deve ser ajustado com o que aprendermos ao jogar contra o LLM.
+> Testado num jogo completo contra a frota gerada pelo programa (`gerafrota`): frota toda afundada em 28 rajadas (84 tiros), sem tiros repetidos nem fora do tabuleiro. Os pontos 3 e 6 foram acrescentados depois desse jogo: a maior dificuldade foi a resposta agregada não dizer qual dos tiros acertou.
 
 ---
 
